@@ -1,0 +1,144 @@
+---
+title: "Assignment 2, Data Visualisation, UCU 2018"
+output: html_notebook
+author: Borys Olshanetskyi
+---
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(ggrepel)
+library(scales)
+library(stringr)
+library(ggthemes)
+library(reshape2)
+```
+
+
+
+```{r}
+df = read.csv(file = "data/death_causes.csv",  encoding="UTF-8", stringsAsFactors = F)
+
+df_agg = df %>%
+  filter(death_count != "NA") %>%
+  group_by(death_cause) %>%
+  summarise(cause_sum = sum(death_count)) %>%
+  arrange(cause_sum)
+  
+df_agg$death_cause = str_wrap(df_agg$death_cause, width = 50)
+
+sum_others = 0
+for (sum in df_agg$cause_sum) {
+  if (sum < 5000) {
+    sum_others = sum_others + sum
+  }
+}
+
+df_agg = rbind(df_agg, list("Усі інші причини", sum_others, sum_others, sum_others))
+df_agg = df_agg[df_agg$cause_sum >= 5000,]
+df_agg = df_agg %>% arrange(cause_sum)
+options(scipen=10000)
+
+ggplot(df_agg) +
+  geom_bar(aes(x = reorder(death_cause, cause_sum), y = cause_sum), stat="identity", fill = "steelblue") +
+  coord_flip() +
+  labs(title = 'Від чого помирали українці у 2016 р.',
+     caption = 'Дані: Укрстат',
+     x = '', y = 'кількість смертей, тис.') +
+  scale_y_continuous(breaks = seq(0, 400000, 50000), labels = unit_format(unit = "", scale = 1e-3, digits = 2)) +
+  theme(
+    text = element_text(family = "Arial"),
+    plot.title = element_text(hjust = -3, face = "bold", family = "Lato"),
+    rect = element_rect(fill = '#F2F2F2'),
+    axis.title.x = element_text(size = 10),
+    axis.text.y = element_text(size = 10, margin = unit(c(0, 0 ,0 , -0.2), "cm")),
+    plot.caption = element_text(size = 8),
+    plot.margin = unit(c(0.5, 0.5, 0.2, 0), "cm")
+        )
+
+ggsave(filename = 'barPlot.png', plot = last_plot(), device = NULL, path = NULL,
+  scale = 1, width = NA, height = NA, units = c("in", "cm", "mm"),
+  dpi = 300, limitsize = TRUE)
+  
+```
+Данний спосіб візуалізації допомагає чітку скомунікувати найзначущі причини смерті українців. Одразу видно що основна причина смерті припадає на хвороби системи кровообігу. Барплот я обрав як один із найбільш зрозумілих способів комунікації.
+
+```{r}
+df_agg2 = df %>%
+  filter(death_count != "NA") %>%
+  filter(age_group != "Вік невідомий") %>%
+  group_by(age_group) %>%
+  summarise(age_sum = sum(death_count)) %>%
+  arrange(age_group)
+
+zero = df_agg2$age_sum[1] + df_agg2$age_sum[10]
+ten = df_agg2$age_sum[2] + df_agg2$age_sum[3]
+twenty = df_agg2$age_sum[4] + df_agg2$age_sum[5]
+thirty = df_agg2$age_sum[6] + df_agg2$age_sum[7]
+forty = df_agg2$age_sum[8] + df_agg2$age_sum[9]
+fifty = df_agg2$age_sum[11] + df_agg2$age_sum[12]
+sixty = df_agg2$age_sum[13] + df_agg2$age_sum[14]
+
+df_agg2 = df_agg2[-sample(1:14), ]
+
+df_agg2 = rbind(df_agg2, list("0-9", zero))
+df_agg2 = rbind(df_agg2, list("10-19", ten))
+df_agg2 = rbind(df_agg2, list("20-29", twenty))
+df_agg2 = rbind(df_agg2, list("30-39", thirty))
+df_agg2 = rbind(df_agg2, list("40-49", forty))
+df_agg2 = rbind(df_agg2, list("50-59", sixty))
+
+ggplot(df_agg2) +
+  geom_bar(aes(x = age_group, y = age_sum), stat="identity", fill = "steelblue") +
+  labs(title = 'Розподіл померлих за віком у 2016 р.',
+     caption = 'Дані: Укрстат',
+     x = 'Вікова група, рр.', y = 'кількість смертей, тис.') +
+  scale_y_continuous(breaks = seq(0, 400000, 50000), labels = unit_format(unit = "", scale = 1e-3, digits = 2)) +
+  theme(
+    text = element_text(family = "Arial"),
+    plot.title = element_text(hjust = 0.5, face = "bold", family = "Lato"),
+    rect = element_rect(fill = '#F2F2F2'),
+    axis.title.x = element_text(size = 10),
+    plot.margin = unit(c(0.5, 0.5, 0.2, 0), "cm")
+        )
+
+ggsave(filename = 'barPlot2.png', plot = last_plot(), device = NULL, path = NULL,
+  scale = 1, width = NA, height = NA, units = c("in", "cm", "mm"),
+  dpi = 300, limitsize = TRUE)
+
+```
+```{r}
+df_agg3 = df %>%   
+  filter(death_count != "NA") %>%
+  filter(age_group != "Вік невідомий")
+  
+df_agg3 = melt(df_agg3, id.vars = c("age_group", "death_cause"))
+
+df_adj = df_agg3 %>%
+  group_by(age_group) %>%
+  summarise(death_sum = sum(value))
+
+# df_agg3 = df_agg3 %>%
+#  mutate (percent = NA) #%>%
+#  mutate(age_total = df_adj[df_adj$age_group == "0-4", "death_sum"])
+
+library('data.table')
+df1 <- data.table(df_agg3)
+df1[, percent := prop.table(value)*100, by = 'age_group']
+  
+ggplot(df1, aes(x = age_group, y = percent, fill = death_cause)) +
+  geom_bar(stat="identity") +
+  geom_col(position = 'fill') +
+  scale_y_continuous(labels = scales::percent_format())
+
+ggsave(filename = 'barPlot3.png', plot = last_plot(), device = NULL, path = NULL,
+  scale = 1, width = 10, height = 10, units = c("in", "cm", "mm"),
+  dpi = 300, limitsize = TRUE)
+```
+
+```{r}
+
+test = apply(df_agg3,1, function(x) x[4] = (df_adj[df_adj$age_group == x[1], "death_sum"]))
+  #mutate(age_total = df_adj[df_adj$age_group == age_group, "death_sum"])
+```
+
