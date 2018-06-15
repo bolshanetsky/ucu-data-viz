@@ -56,7 +56,7 @@ ggplot(df_agg) +
     plot.margin = unit(c(0.5, 0.5, 0.2, 0), "cm")
         )
 
-ggsave(filename = 'barPlot.png', plot = last_plot(), device = NULL, path = NULL,
+ggsave(filename = 'visualizations/barPlot.png', plot = last_plot(), device = NULL, path = NULL,
   scale = 1, width = NA, height = NA, units = c("in", "cm", "mm"),
   dpi = 300, limitsize = TRUE)
   
@@ -102,11 +102,14 @@ ggplot(df_agg2) +
     plot.margin = unit(c(0.5, 0.5, 0.2, 0), "cm")
         )
 
-ggsave(filename = 'barPlot2.png', plot = last_plot(), device = NULL, path = NULL,
+ggsave(filename = 'visualizations/barPlot2.png', plot = last_plot(), device = NULL, path = NULL,
   scale = 1, width = NA, height = NA, units = c("in", "cm", "mm"),
   dpi = 300, limitsize = TRUE)
 
 ```
+Як і попередній візулізації, тут ми концентруємось на одному конкретному показнику - на розподілі смертності серед різних вікових груп. Групи зроблені ширшими від оригінальних данних, щоб підвищити читабельність.
+
+
 ```{r}
 df_agg3 = df %>%   
   filter(death_count != "NA") %>%
@@ -114,31 +117,38 @@ df_agg3 = df %>%
   
 df_agg3 = melt(df_agg3, id.vars = c("age_group", "death_cause"))
 
-df_adj = df_agg3 %>%
-  group_by(age_group) %>%
-  summarise(death_sum = sum(value))
-
-# df_agg3 = df_agg3 %>%
-#  mutate (percent = NA) #%>%
-#  mutate(age_total = df_adj[df_adj$age_group == "0-4", "death_sum"])
+df_agg3$death_cause = str_wrap(df_agg3$death_cause, width = 50)
 
 library('data.table')
 df1 <- data.table(df_agg3)
 df1[, percent := prop.table(value)*100, by = 'age_group']
+
+positions = c("0-4", "5-9","10-14", "15-19", "20-24", "25-29", "30-34", "35-39", "40-44", "45-49", "50-54", "55-59", "60-64", "65-69", "70 і старше")
   
 ggplot(df1, aes(x = age_group, y = percent, fill = death_cause)) +
   geom_bar(stat="identity") +
   geom_col(position = 'fill') +
-  scale_y_continuous(labels = scales::percent_format())
+  scale_y_continuous(labels = dollar_format(suffix = "%", prefix = "")) +
+  scale_x_discrete(limits = positions) +
+    labs(title = 'Причини смертності серед різних вікових груп, 2016 р.',
+     caption = 'Дані: Укрстат',
+     fill = '',
+     x = 'Вікова група, рр.', y = 'Частка у загальній кількості') +
+    theme(
+    text = element_text(family = "Arial"),
+    plot.title = element_text(hjust = 0.5, face = "bold", family = "Lato"),
+    axis.title.x = element_text(size = 10, face = "bold"),
+    axis.text.y = element_text(face = "bold"),
+    rect = element_rect(fill = '#F2F2F2'),
+    plot.margin = unit(c(0.5, 0, 0.5, 0.2), "cm"),
+    panel.grid.major.y = element_blank(),
+    legend.spacing = unit(2, "cm")
+        )
 
-ggsave(filename = 'barPlot3.png', plot = last_plot(), device = NULL, path = NULL,
-  scale = 1, width = 10, height = 10, units = c("in", "cm", "mm"),
+ggsave(filename = 'visualizations/barPlot3.png', plot = last_plot(), device = NULL, path = NULL,
+  scale = 1, width = 12, height = 7, units = c("in", "cm", "mm"),
   dpi = 300, limitsize = TRUE)
 ```
 
-```{r}
-
-test = apply(df_agg3,1, function(x) x[4] = (df_adj[df_adj$age_group == x[1], "death_sum"]))
-  #mutate(age_total = df_adj[df_adj$age_group == age_group, "death_sum"])
-```
+Даний спосіб візуалізації, допомагає скомунікувати особливості розподілу причин смертності для різних вікових груп. Процентне представлення надає можливість прибрати кількісну складову і дозволяє порівнювати різні вікові групи.
 
